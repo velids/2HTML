@@ -1,1 +1,210 @@
+import magic 								#mimeType library
+import subprocess
+import os, os.path
+import datetime	
+import logging
+import zipfile, tarfile
+import tempfile, shutil
+import sys
 
+#initializes time by ISO (used for logging and sorting)
+date = datetime.date.today() 
+
+#prompts user for input & destination dir
+if len(sys.argv)<3:
+	print "Missing arguments. Use: \npython " +sys.argv[0] + " --input dir or file" + " --destination dir"
+	exit()
+#...AND I just realized that the user might want to have a single file converted -_-
+
+#Just some simple user input sanitization
+if os.path.isdir(sys.argv[1]) is True:
+	originaldir = sys.argv[1]
+elif os.path.isfile(sys.argv[1]) is True:					#Fixed! (lazy coding)
+	tempdirfile = tempfile.mkdtemp()
+	shutil.copy2(os.path.normpath(sys.argv[1]), tempdirfile)
+	originaldir = tempdirfile
+else:
+	print "Unknown input dir/file, please enter full path to file or dir!"
+	exit()
+
+if os.path.isdir(sys.argv[2]) is True:
+	outputdir  = os.path.normpath(sys.argv[2]) +"_"+str(date)
+else:
+	print "Unknown output dir, please enter full path to dir!"
+
+
+mylog = "/home/velid/"+"error_MHC.log" #Should I put this in argv as well=?
+
+
+
+
+#I have to check with Sidi on how to go about logging. Full - or Just errors? 
+#simple error logging config
+logging.basicConfig(filename=mylog, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(name)s %(message)s') #appropriate format?
+elogger=logging.getLogger(__name__)
+#output ex:	2015-12-08 03:26:14,582 ERROR __main__ Warning, nested compressed file: 12.zip detected! in/home/velid/test/rofltest/12.zip
+
+#less simple info logging config Also is there a simpler way to do this for info logging? (without stdout or p.communicate)
+"""
+logger = logging.getLogger('myApp')
+hdlr = logging.FileHandler ('myApp.log')
+logger.addHandler(hdlr)
+logger.setLevel(logging.INFO)
+
+#example on how to use...
+p = subprocess.Popen ( ["pdf2htmlEX", "--dest-dir", Outputdir(), Originaldir(), str(os.path.splitext(file)[0]+ ".html")], stdout = subprocess.PIPE, stderr=subprocess.PIPE)	
+				stdout, stderr = p.communicate()
+				if stdout:
+					logger.info(stdout)	
+				if stderr:
+					logger.info('processing: ' + file)
+					logger.error(stderr)
+"""
+#returns path to directory
+def Folder(path, relativepath): 					
+	relDir = os.path.relpath(root, relativepath)
+	return os.path.normpath(os.path.join(path, relDir))
+ 
+#returns full path to file
+def File(path): 							
+	fileSet = set()
+	relDir = os.path.relpath(root, originaldir)
+	relFile = os.path.join(relDir, file)
+	fileSet.add(relFile)
+	return os.path.normpath(os.path.join(path, relFile))
+
+
+
+#File Crawler
+def WalkLevel (some_dir, level=2): 					#level determines how deep to crawl
+	some_dir = some_dir.rstrip(os.path.sep) 
+	assert os.path.isdir(some_dir) 
+	num_sep = some_dir.count(os.path.sep)
+	for root, dirs, files in os.walk (some_dir):
+		yield root, dirs, files
+		num_sep_this = root.count(os.path.sep)
+		if num_sep + level <= num_sep_this:
+			del dirs[:]
+
+
+def MagString(path):							#CASE 1/2 determines mimeType 
+	return magic.from_file(File(path), mime=True)
+
+def MagStringZ():							#CASE 3: determine mimeType for UNCOMPRESSED
+	return magic.from_file(os.path.normpath(os.path.join(originaldir, os.path.relpath(subdir, originaldir), file)), mime=True)
+
+def MagStringX():							#CASE 3: determine mimeType in 2nd temp dir
+	return magic.from_file(os.path.normpath(os.path.join(tempdir, os.path.relpath(root, tempdir), file)), mime=True)
+
+
+def MimePdf():								#mimeType keyword for PDF
+	return "application/pdf"
+
+def oldExtension():
+	return str(os.path.splitext(file)[1][1:])
+
+
+
+#Functions to uncompress with, appending "_" at each. (I don't like folders ending with file types)
+def Gzip(x):	 		#extracts .tar.gz files
+	fh = tarfile.open(x, "r:gz")
+	fh.extractall(os.path.join(tempdir, os.path.relpath(subdir, originaldir), file+"_")) 				
+	fh.close()	
+
+def Xtar(x):  			#extracts .tar files
+	tar = tarfile.open(x, "r:")
+	fh.extractall(os.path.join(tempdir, os.path.relpath(subdir, originaldir), file+"_"))
+	fh.close()
+
+def Zip(x):			#extracts .zip files
+	fh = open(x, "rb")
+	z = zipfile.ZipFile(fh)
+	z.extractall(os.path.join(tempdir, os.path.relpath(subdir, originaldir), file+"_"))
+	fh.close()
+
+
+
+def Pdf2HtmlIO(): 							#CASE 1: called in user input dir, output is user output dir
+	return subprocess.call ( ["pdf2htmlEX", "--dest-dir", Folder(outputdir, originaldir), File(originaldir), file+".html"] )
+
+def Pdf2HtmlTO(): 							#CASE 2: called in temporary dir, output is user output dir
+	return subprocess.call ( ["pdf2htmlEX", "--dest-dir", Folder(outputdir, originaldir), str(os.path.splitext(File(tempdir))[0]+"."+oldExtension()+ ".pdf"), file + ".html"] )
+
+def Pdf2HtmlCTO(): 							#CASE 3: called in temporary dir, output is user output dir
+	return subprocess.call ( ["pdf2htmlEX", "--dest-dir", Folder(outputdir, tempdir), os.path.normpath(os.path.join(tempdir, os.path.relpath(root, tempdir), file)), str(os.path.splitext(file)[0]+ "."+oldExtension()+".html")] )
+
+def Pdf2HtmlCTOZ(): 							#CASE 3: called in temporary dir n2, output is user output dir
+	return subprocess.call ( ["pdf2htmlEX", "--dest-dir", Folder(outputdir, tempdir), os.path.normpath(os.path.join(tempdir2, os.path.relpath(root, tempdir), file+".pdf")), file+".html"] )
+
+
+def Doc2PdfIT(): 							#CASE 2: called in user input dir, output is temporary dir
+	return subprocess.call(['libreoffice', '--headless', '--convert-to',oldExtension()+'.pdf:writer_pdf_Export', '--outdir', Folder(tempdir, originaldir), File(originaldir)])
+
+def Doc2PdfTT():							#CASE 3: called in temporary dir n2, output is temporary dir
+	return subprocess.call(['libreoffice', '--headless', '--convert-to', oldExtension()+'.pdf:writer_pdf_Export', '--outdir', Folder(tempdir2, tempdir), os.path.normpath(os.path.join(tempdir, os.path.relpath(root, tempdir), file))])
+
+
+
+myCompressed = {'application/gzip' : Gzip, 'application/x-tar' : Xtar, 'application/zip' : Zip} #still missing rar and few others
+myDocs = {'application/vnd.oasis.opendocument.text' : Doc2PdfIT, 'application/vnd.ms-excel' : Doc2PdfIT} #still missing a few
+myDict = {"application/vnd.oasis.opendocument.text" : Doc2PdfTT, "application/vnd.ms-excel" : Doc2PdfTT} #tT (don't confuse with 'iT')
+
+
+#case 1. PDF -> HTML
+for root, dirs, files in WalkLevel(originaldir): 			
+	for file in files:
+		if MimePdf() in MagString(originaldir):
+			try:
+				Pdf2HtmlIO()
+			except Exception, e:
+				elogger.error(e)
+				continue
+				
+#Case 2. DOC->PDF->HTML
+for root, dirs, files in WalkLevel(originaldir):
+	for file in files:
+		for line in myDocs:   					
+			if line in MagString(originaldir):
+				try:
+					tempdir = tempfile.mkdtemp() 			#initializes temporary Dir			
+					functionToCall = myDocs[line] 		
+					functionToCall()					#calls Doc2PdfIT()"
+					Pdf2HtmlTO()			
+					shutil.rmtree(tempdir)				#destructs temporary Dir
+				except Exception, e:
+					elogger.error(e)
+					shutil.rmtree(tempdir)
+					continue
+
+#Case 3. ZIP->DOC/PDF->HTML
+for subdir, dirs, files in WalkLevel(originaldir):
+	for file in files:
+		for line in myCompressed:
+			try:
+				if line in MagStringZ():			
+					tempdir = tempfile.mkdtemp() 			#initializes temporary dir			
+					functionToCall = myCompressed[line]
+					functionToCall(os.path.normpath(os.path.join(originaldir, os.path.relpath(subdir, originaldir), file)))
+					for root, dirs, files in os.walk(tempdir):
+						for file in files:
+							if MimePdf() in MagStringX():
+								Pdf2HtmlCTO()
+							for line in myDict: 
+  								if line in MagStringX(): 
+									tempdir2 = tempfile.mkdtemp()	#init 2nd tempdir for doc>pdf	
+									functionToCall = myDict[line] 		
+									functionToCall()  		#calls Doc2Pdf function		
+									Pdf2HtmlCTOZ()
+									shutil.rmtree(tempdir2)		#destructs 2nd temporary dir
+							for line in myCompressed: #optional, Set it up to work for nested zip files also?
+								if line in MagStringX():
+									x= "Warning, nested compressed file: " +file+" detected! in "+ os.path.normpath(os.path.join(originaldir, os.path.relpath(subdir, originaldir), file))
+									print x
+									elogger.error(x)
+#note to self: I could simply reiterate the code I've written above and pass on different arguments if push comes to shove.
+					shutil.rmtree(tempdir)						#destructs temporary dir
+			except Exception, e:
+				elogger.error(e)
+				continue
+if os.path.isdir(sys.argv[1]) is False:	
+	shutil.rmtree(tempdirfile)													
