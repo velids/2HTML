@@ -21,7 +21,7 @@ if os.path.isdir(sys.argv[1]) is True:
 	originaldir = sys.argv[1]						
 elif os.path.isfile(sys.argv[1]) is True:					
 	tempdirfile = tempfile.mkdtemp()		#If file, copy to tempdir, then pass on tempdir path as original dir attribute 
-	shutil.copy2(os.path.normpath(sys.argv[1]), tempdirfile) #remember to test this.
+	shutil.copy2(os.path.normpath(sys.argv[1]), tempdirfile)
 	originaldir = tempdirfile
 else:		
 	print "Unknown input dir/file, please enter full path to file or dir!"
@@ -65,7 +65,7 @@ def WalkLevel (some_dir, level=2): 					#level determines how deep to crawl
 		if num_sep + level <= num_sep_this:
 			del dirs[:]
 
-def MagString(path):
+def MagString(path):							#returns mimeType of file
 	return magic.from_file(path, mime=True)
 
 def MimePdf():								#mimeType keyword for PDF
@@ -89,7 +89,7 @@ def Zip(File, Destination):	#extracts .zip files
 
 """
 def Rar(File, Destination, X, Y):
-	patoolib.extract_archive(File, os.path.join(Destination, os.path.relpath(X, Y), file+"_")) #still need to test it
+	patoolib.extract_archive(File, os.path.join(Destination, os.path.relpath(X, Y), file+"_")) #t
 """
 
 def oldExtension():
