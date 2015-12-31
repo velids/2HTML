@@ -74,7 +74,7 @@ def get_meta_type(mime_type):					#equivalent of Case1 in my code	-V
                 return 'archive'
     return 'unknown'        					
 
-def process_dir(src_dir, dst_dir, level):			#changed this part -V, added start_level
+def process_dir(src_dir, dst_dir, level):			
     for i in os.listdir(src_dir):
         fname=os.path.join(src_dir, i)
         if not os.path.isdir(fname):				#If not DIR (ergo file) get MimeType/return Subtype -V
@@ -94,7 +94,7 @@ def process_dir(src_dir, dst_dir, level):			#changed this part -V, added start_l
 				#rm_dir(tmp_src_dir)
 				
             print "###"
-        else:							                    #For Nested Files -V
+        else:							                    #For Nested Folders -V
             ndst_dir = fname.replace(src_dir, dst_dir)		
             process_dir(fname, ndst_dir, level)
         
