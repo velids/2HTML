@@ -15,7 +15,7 @@ office_types = [
 pdf_types = ['pdf', 'postscript']
 compressed_types = ['x-7z', 'x-bzip2', 'x-compress', 'x-gzip', 'x-rar', 'x-tar', 'x-xz',  'zip']
 
-def rng():
+def rng(): #needed, because if tmp is not unique and files are loaded into existing tmp, it will end up "cleaned" afterwards.
 	return str(datetime.datetime.now().strftime("%y%m%d_%H%M%S"))
 
 def rm_dir(dir):				                                #removes directory  -V
